@@ -1,9 +1,6 @@
 # customer_management.py
-import time
-import pandas as pd
+from datetime import datetime, timezone
 import sys # Cần import sys để dùng sys.modules
-import json
-
 import config
 from api_client import call_api # Đã refactor để trả về tuple (data, error_msg)
 from utils import format_amount_vietnamese_style # Đảm bảo utils.py có hàm này với tên đúng
@@ -52,8 +49,10 @@ def get_customer_details_for_display(base_url: str, server_name: str, customer_a
             elif key_item in ["startTime", "validTime"]:
                 try:
                     timestamp_ms = int(value_item)
-                    if -62135596800000 <= timestamp_ms <= 253402300799999 : 
-                        display_value_item_str = pd.to_datetime(timestamp_ms, unit='ms').strftime('%Y-%m-%d %H:%M:%S')
+                    if -62135596800000 <= timestamp_ms <= 253402300799999 :
+                        timestamp_s = timestamp_ms / 1000.0
+                        dt_object = datetime.fromtimestamp(timestamp_s, tz=timezone.utc) 
+                        display_value_item_str = dt_object.strftime('%Y-%m-%d %H:%M:%S')
                     else:
                         display_value_item_str = f"Invalid Timestamp ({value_item})"
                 except (ValueError, TypeError, OverflowError):

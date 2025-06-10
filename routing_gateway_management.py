@@ -2,16 +2,9 @@
 import config
 from api_client import call_api # Đã được refactor để trả về tuple (data, error_message)
 from utils import (
-    parse_vos_rewrite_rules,          # Tên mới từ utils.py
-    format_rewrite_rules_for_vos,     # Tên mới từ utils.py
-    is_six_digit_virtual_number_candidate, # Tên mới từ utils.py
-    generate_search_variants,
-    transform_real_number_for_vos_storage # Tên mới từ utils.py
-    # classify_phone_number # Có thể không cần import trực tiếp ở đây nếu các hàm trên đã dùng
+    parse_vos_rewrite_rules,          
+    is_six_digit_virtual_number_candidate,
 )
-# customer_management được import có chủ đích bên trong hàm find_customers_linked_to_virtual_number
-# để tránh lỗi circular import khi khởi tạo.
-
 # --- Routing Gateway Data Retrieval Functions ---
 
 def get_all_routing_gateways(server_info: dict, filter_text: str = "") -> tuple[list[dict] | None, str | None]:

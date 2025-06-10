@@ -1,7 +1,7 @@
 import re
 import locale
-
-import config # For DEFAULT_ENCODING if used by any retained function
+import config
+from typing import Dict, List, Any # For DEFAULT_ENCODING if used by any retained function
 
 # --- Phone Number Classification and Transformation Constants ---
 
@@ -249,3 +249,50 @@ def is_six_digit_virtual_number_candidate(number_string: str) -> bool:
         return False
     cleaned_string = str(number_string).strip()
     return cleaned_string.isdigit() and len(cleaned_string) == 6
+
+def apply_rg_locktype_logic(payload_rg_dict: Dict[str, Any], rules_dict_after_change: Dict[str, List[str]]):
+    """
+    Cập nhật trường 'lockType' trong payload_rg_dict dựa trên các quy tắc nghiệp vụ.
+    Hàm này là phiên bản tái cấu trúc của apply_locktype_logic_qvn_helper từ app.py cũ.
+
+    Args:
+        payload_rg_dict: Dictionary chứa payload của RG, sẽ được chỉnh sửa trực tiếp.
+        rules_dict_after_change: Dictionary các rewrite rule đã được cập nhật (sau khi thêm/xóa/sửa).
+    """
+    print(f"Utils: Áp dụng logic lockType cho RG: {payload_rg_dict.get('name', 'Unknown RG')}")
+
+    # Lấy các thông tin cần thiết từ payload RG
+    current_callin_caller_str = payload_rg_dict.get("callinCallerPrefixes", "")
+    current_callin_caller_list = [p.strip() for p in current_callin_caller_str.split(',') if p.strip()]
+
+    current_callin_callee_str = payload_rg_dict.get("callinCalleePrefixes", "")
+    # Không cần list callee cho logic if/elif bên dưới theo bản gốc, chỉ cần biết nó có tồn tại không
+
+    # Kiểm tra xem có rule nào "có ý nghĩa" không (không rỗng và không phải chỉ là ["hetso"])
+    meaningful_rules_exist = any(
+        r_list and r_list != ["hetso"]
+        for r_list in rules_dict_after_change.values() if r_list
+    )
+
+    # Lấy lockType hiện tại, mặc định là "0" (active) nếu không có.
+    # QUAN TRỌNG: VOS API có thể nhận lockType là SỐ (0,1,3) hoặc CHUỖI ("0","1","3").
+    # Hãy đảm bảo kiểu dữ liệu ở đây và khi gửi đi là nhất quán. Tạm dùng chuỗi.
+    original_lock_type_str = str(payload_rg_dict.get("lockType", "0"))
+    new_lock_type_str = original_lock_type_str # Mặc định giữ nguyên
+
+    # Logic chính dựa trên app.py gốc của bạn:
+    if not current_callin_caller_list and not current_callin_callee_str.strip() and not meaningful_rules_exist:
+        # Không còn caller prefix, không còn callee prefix, và không còn rule ý nghĩa -> Khóa hoàn toàn
+        new_lock_type_str = "3"
+    elif len(current_callin_caller_list) <= 1 and not meaningful_rules_exist:
+        # Chỉ còn 0 hoặc 1 caller prefix VÀ không có rule ý nghĩa
+        # (Logic gốc của bạn trong app.py QVN helper không trực tiếp kiểm tra callee prefix trong điều kiện này,
+        # nhưng điều kiện đầu tiên đã bao hàm trường hợp callee rỗng. Cần kiểm tra lại nếu logic của bạn khác.)
+        if original_lock_type_str not in ["0", "1"]: # Nếu đang là 3 hoặc giá trị lạ
+            new_lock_type_str = "3"
+        # else: giữ nguyên original_lock_type_str (nếu đang là "0" hoặc "1")
+    # else: giữ nguyên original_lock_type_str (nếu có nhiều hơn 1 caller prefix hoặc có rule ý nghĩa)
+
+    print(f"Utils: RG '{payload_rg_dict.get('name')}': CallerPrefixes='{current_callin_caller_str}', CalleePrefixes='{current_callin_callee_str}', MeaningfulRules={meaningful_rules_exist}. OriginalLockType='{original_lock_type_str}', NewLockType='{new_lock_type_str}'.")
+    payload_rg_dict["lockType"] = new_lock_type_str # Cập nhật trực tiếp vào payload
+
